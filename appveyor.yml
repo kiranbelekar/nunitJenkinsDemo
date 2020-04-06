@@ -1,0 +1,44 @@
+version: 1.1.2.{build}
+image: Visual Studio 2017
+dotnet_csproj:
+  patch: true
+  file: '**\*.csproj'
+  version: '{version}'
+  package_version: '{version}'
+  assembly_version: '{version}'
+  file_version: '{version}'
+  informational_version: '{version}'
+environment:
+  COVERALLS_REPO_TOKEN:
+    secure: cHB8W7MxHtoQ7KtUf2bkVGIu9LZF6b3x5ycyu3Op7nMBGliLt0076oUA7SuBFIOu
+build_script:
+- cmd: dotnet build
+test_script:
+- ps: >-
+    nuget install OpenCover -OutputDirectory packages -Version 4.6.519
+
+    dotnet tool install coveralls.net --version 1.0.0 --tool-path tools
+
+    .\packages\OpenCover.4.6.519\tools\OpenCover.Console.exe -register:user -target:dotnet.exe "-targetargs:""test"" ""AutoMockHelper.Samples.MSTest\AutoMockHelper.Samples.MSTest.csproj""" -filter:"+[AutoMockHelper.Samples.Logic*]*OrderProcessor" -oldStyle -output:opencoverCoverage.xml -searchdirs:"AutoMockHelper.Samples.MSTest/bin/debug/netcoreapp2.1" -hideskipped:All
+    
+    .\packages\OpenCover.4.6.519\tools\OpenCover.Console.exe -register:user -target:dotnet.exe "-targetargs:""test"" ""AutoMockHelper.Samples.NUnit\AutoMockHelper.Samples.NUnit.csproj""" -filter:"+[AutoMockHelper.Samples.Logic*]*OrderProcessor" -oldStyle -output:opencoverCoverage.xml -searchdirs:"AutoMockHelper.Samples.MSTest/bin/debug/netcoreapp2.1" -hideskipped:All -mergeoutput
+    
+    .\packages\OpenCover.4.6.519\tools\OpenCover.Console.exe -register:user -target:dotnet.exe "-targetargs:""test"" ""AutoMockHelper.Samples.xUnit\AutoMockHelper.Samples.xUnit.csproj""" -filter:"+[AutoMockHelper.Samples.Logic*]*OrderProcessor" -oldStyle -output:opencoverCoverage.xml -searchdirs:"AutoMockHelper.Samples.MSTest/bin/debug/netcoreapp2.1" -hideskipped:All -mergeoutput
+    
+    .\packages\OpenCover.4.6.519\tools\OpenCover.Console.exe -register:user -target:dotnet.exe "-targetargs:""test"" ""AutoMockHelper.Tests\AutoMockHelper.Tests.csproj""" -filter:"+[AutoMockHelper.Core*]*AutoMockContext" -oldStyle -output:opencoverCoverage.xml -searchdirs:"AutoMockHelper.Samples.MSTest/bin/debug/netcoreapp2.1" -hideskipped:All -mergeoutput
+
+    $coveralls = ".\tools\csmacnz.coveralls.exe"
+
+    & $coveralls --opencover -i opencoverCoverage.xml --repoToken $env:COVERALLS_REPO_TOKEN --commitId $env:APPVEYOR_REPO_COMMIT --commitBranch $env:APPVEYOR_REPO_BRANCH --commitAuthor $env:APPVEYOR_REPO_COMMIT_AUTHOR --commitEmail $env:APPVEYOR_REPO_COMMIT_AUTHOR_EMAIL --commitMessage $env:APPVEYOR_REPO_COMMIT_MESSAGE --jobId $env:APPVEYOR_JOB_ID
+after_test:
+- cmd: dotnet pack AutoMockHelper.Core
+artifacts:
+- path: 'AutoMockHelper.Core\**\*.nupkg'
+deploy:
+- provider: NuGet
+  api_key:
+    secure: RTLuX5RDfgWBz1BsMyyH+sVRVf/3Uj/VwNEWbSq8xMZYvwJX/U57k8s8YnMtTQkr
+  skip_symbols: false
+  artifact: /.*\.nupkg/
+  on:
+    branch: release
